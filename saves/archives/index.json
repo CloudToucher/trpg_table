@@ -3,6 +3,18 @@
   "entries": [
     {
       "campaign_id": "zhaoyutong",
+      "snapshot_id": "20260227_164704",
+      "created_at": "2026-02-27T16:47:04+08:00",
+      "archive_mode": "move",
+      "main_roles_label": "赵雨桐+林立",
+      "ai_blip": "封读档测试",
+      "save_filename_hint": "save_20260227_164704_赵雨桐+林立_封读档测试.md",
+      "file_count": 11,
+      "total_bytes": 59709,
+      "note": "测试存档读档效果"
+    },
+    {
+      "campaign_id": "zhaoyutong",
       "snapshot_id": "20260227_163204",
       "created_at": "2026-02-27T16:32:04+08:00",
       "archive_mode": "move",

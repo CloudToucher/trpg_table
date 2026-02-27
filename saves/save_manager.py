@@ -222,6 +222,8 @@ def collect_scope_files(root: Path, extra_globs: Optional[Sequence[str]] = None)
                 continue
             if path.name.lower() in EXCLUDED_BASENAMES_LOWER:
                 continue
+            if scope == "characters" and any(path.stem.startswith(prefix) for prefix in EXCLUDED_ROLE_PREFIXES):
+                continue
             rel = to_posix_relative(root, path)
             if rel.startswith("saves/archives/"):
                 continue

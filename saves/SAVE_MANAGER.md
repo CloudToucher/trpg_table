@@ -18,6 +18,10 @@
 - `logs/system/*.md`
 - `saves/save_*.md`（不含 `save_initial_template.md`）
 
+补充（默认规则）：
+- `characters/active/示例角色*.md` 不参与封存/恢复（保留为示例资产）。
+- `characters/active/*_已死亡.md` 会参与封存/恢复（保留战役历史）。
+
 ## 3. 归档目录结构
 
 ```text
