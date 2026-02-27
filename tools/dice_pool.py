@@ -19,11 +19,11 @@ import os
 from datetime import datetime
 
 STANDARD_POOL = {
-    "d100": 30,
+    "d100": 50,
     "d10": 15,
     "d8": 12,
-    "d6": 10,
-    "d4": 6,
+    "d6": 15,
+    "d4": 10,
 }
 
 LARGE_POOL = {k: v * 2 for k, v in STANDARD_POOL.items()}
@@ -48,12 +48,17 @@ def roll_pool(pool_sizes: dict) -> dict:
 def format_pool(pool: dict) -> str:
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     lines = [f"【骰池补充】 生成时间：{timestamp}", ""]
+    
     for dice, values in pool.items():
-        nums = ", ".join(str(v).rjust(2 if dice == "d100" else 1) for v in values)
-        lines.append(f"{dice:>4}: {nums}")
-    lines.append("")
-    total = sum(len(v) for v in pool.values())
-    lines.append(f"共 {total} 个骰子。复制以上内容发送给DM即可。")
+        lines.append(f"{dice}:")
+        # 每5个一行
+        for i in range(0, len(values), 5):
+            chunk = values[i:i+5]
+            nums = ", ".join(str(v).rjust(2 if dice == "d100" else 1) for v in chunk)
+            lines.append(f"  {nums}")
+        lines.append("")  # 空行分隔不同骰子类型
+    
+    lines.append(f"共 {sum(len(v) for v in pool.values())} 个骰子。复制以上内容发送给DM即可。")
     return "\n".join(lines)
 
 
