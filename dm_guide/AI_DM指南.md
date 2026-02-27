@@ -61,6 +61,8 @@
    → 如果是继续游戏，先执行标准恢复：
      - 玩家已给出战役ID：`python saves/save_manager.py restore -c [campaign_id] [--snapshot 快照ID]`
      - 玩家未给出战役ID：先执行 `python saves/save_manager.py list`，若仅有1个战役则自动恢复；若有多个战役则先让玩家确认
+   → 默认是剪切读档（move），读档后该快照会被消费
+   → 仅当玩家明确要求保留归档副本时，使用：`python saves/save_manager.py restore ... --copy-from-archive`
    → 然后读取恢复后的最新存档
    → 【重要】检查存档中的"活跃状态提醒"区域，恢复所有计时和效果
 
@@ -120,6 +122,7 @@
    - 记录完整队伍角色状态、位置、进度
    - 运行标准封存工具（推荐）：
      `python saves/save_manager.py archive -c [campaign_id] --main-roles "[主角色串]" --ai-blip "[AI超简评]" --note "[会话摘要]"`
+   - 默认单槽位：archive 会清理同战役旧快照，仅保留最新一份
 
 2. 完成日志
    - 完成会话日志的本次摘要

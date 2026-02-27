@@ -34,6 +34,10 @@
 - 实时写入四种日志（logs/session/, logs/combat/, logs/exploration/, logs/system/）
 - 存档时必须填写"活跃状态提醒"区域（持续效果、饥饿口渴计时、区域特殊规则）
 - 收到多人批量输入时，按"原始输入协议"先整体解析，再统一裁决并明确说明无效/顺延条目
+- 存档/读档语义固定：
+  - `archive` 默认剪切封存（move），且同战役仅保留最新一份快照（单槽位）
+  - `restore` 默认剪切读档（move），读档后会消费该快照
+  - 只有玩家明确要求保留副本时，才使用 `restore --copy-from-archive`
 
 然后根据玩家的需求：
 - 如果玩家说"开始新游戏"，读取 characters/templates/角色生成指南.md，引导玩家创建1-N名角色（可多人分别控制）
@@ -60,6 +64,7 @@
 玩家要求继续旧局时，先执行：
 - 已知战役ID：`python saves/save_manager.py restore -c [campaign_id] [--snapshot 快照ID]`
 - 未知战役ID：`python saves/save_manager.py list`，按列表确认后再 restore
+默认是剪切读档；只有玩家明确要求保留副本时，才加 `--copy-from-archive`。
 准备好后等待玩家指令。
 ```
 

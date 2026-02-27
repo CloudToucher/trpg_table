@@ -321,6 +321,39 @@ def update_archive_index(root: Path, entry: Dict) -> None:
     write_json(index_path(root), index_data)
 
 
+def remove_archive_index_entry(root: Path, campaign_id: str, snapshot_id: str) -> None:
+    index_data = load_archive_index(root)
+    entries = index_data.get("entries", [])
+    index_data["entries"] = [
+        e
+        for e in entries
+        if not (
+            e.get("campaign_id") == campaign_id
+            and e.get("snapshot_id") == snapshot_id
+        )
+    ]
+    index_data["schema_version"] = SCHEMA_VERSION
+    write_json(index_path(root), index_data)
+
+
+def purge_campaign_archives(root: Path, campaign_id: str, dry_run: bool = False) -> int:
+    campaign_dir = archives_root(root) / campaign_id
+    if not campaign_dir.exists():
+        return 0
+
+    snapshot_count = len([p for p in campaign_dir.iterdir() if p.is_dir()])
+    if dry_run:
+        return snapshot_count
+
+    shutil.rmtree(campaign_dir)
+    index_data = load_archive_index(root)
+    entries = index_data.get("entries", [])
+    index_data["entries"] = [e for e in entries if e.get("campaign_id") != campaign_id]
+    index_data["schema_version"] = SCHEMA_VERSION
+    write_json(index_path(root), index_data)
+    return snapshot_count
+
+
 def read_manifest(path: Path) -> Dict:
     data = load_json(path, {})
     if not data:
@@ -415,6 +448,8 @@ def cmd_archive(args: argparse.Namespace) -> int:
         print("没有可封存的运行态文件，终止。")
         return 1
 
+    purged_old = purge_campaign_archives(root, campaign_id, dry_run=args.dry_run)
+
     main_roles = resolve_main_roles(root, args.main_roles, limit=role_limit)
     main_roles_label = "+".join(main_roles) if main_roles else "队伍"
     ai_blip = normalize_ai_blip(args.ai_blip)
@@ -437,6 +472,9 @@ def cmd_archive(args: argparse.Namespace) -> int:
     print(f"campaign: {campaign_id}")
     print(f"snapshot: {snapshot_id}")
     print(f"mode: {args.mode}")
+    print("history_mode: single-slot")
+    if purged_old:
+        print(f"purged_old_snapshots: {purged_old}")
     print(f"main_roles: {main_roles_label}")
     if ai_blip:
         print(f"ai_blip: {ai_blip}")
@@ -596,7 +634,13 @@ def cmd_restore(args: argparse.Namespace) -> int:
             print(f"  ... and {len(collisions) - 20} more")
         return 1
 
-    mode = "move" if args.move_from_archive else "copy"
+    move_from_archive = True
+    if args.copy_from_archive:
+        move_from_archive = False
+    if getattr(args, "move_from_archive", False):
+        move_from_archive = True
+
+    mode = "move" if move_from_archive else "copy"
     if args.dry_run:
         print("== Restore Dry Run ==")
     else:
@@ -616,7 +660,7 @@ def cmd_restore(args: argparse.Namespace) -> int:
         if args.force and target.exists():
             remove_existing_path(target)
 
-        if args.move_from_archive:
+        if move_from_archive:
             shutil.move(str(source), str(target))
         else:
             shutil.copy2(str(source), str(target))
@@ -633,8 +677,22 @@ def cmd_restore(args: argparse.Namespace) -> int:
         print("dry-run complete, no files changed.")
         return 0
 
+    if move_from_archive:
+        snapshot_id_effective = str(manifest.get("snapshot_id", "")).strip()
+        campaign_id_effective = str(manifest.get("campaign_id", "")).strip()
+        # move模式下快照被消费，避免同一份数据在归档和运行态双份存在
+        if snapshot_dir.exists():
+            shutil.rmtree(snapshot_dir)
+        if campaign_id_effective and snapshot_id_effective:
+            remove_archive_index_entry(root, campaign_id_effective, snapshot_id_effective)
+        campaign_dir = archives_root(root) / campaign_id
+        if campaign_dir.exists() and not any(campaign_dir.iterdir()):
+            campaign_dir.rmdir()
+
     print(f"restored: {restored} files")
     print(f"from: {snapshot_dir}")
+    if move_from_archive:
+        print("archive_snapshot_consumed: yes")
     return 0
 
 
@@ -701,9 +759,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_restore.add_argument("--force", action="store_true", help="覆盖目标已有文件")
     p_restore.add_argument(
+        "--copy-from-archive",
+        action="store_true",
+        help="复制读档（默认是剪切读档）",
+    )
+    p_restore.add_argument(
         "--move-from-archive",
         action="store_true",
-        help="将快照内文件移动回运行目录（默认是复制）",
+        help=argparse.SUPPRESS,
     )
     p_restore.add_argument(
         "--skip-hash-check",

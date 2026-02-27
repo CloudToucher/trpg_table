@@ -8,6 +8,7 @@
 - 标准化交接：每次封存都生成 `manifest.json` + `summary.md`，可追溯、可审计。
 - 可恢复：按 `campaign_id/snapshot_id` 将文件放回原路径。
 - 存档命名统一：`save_时间戳_主角色串_AI超简评.md`（便于多人局检索）。
+- 默认单槽位：每次 `archive` 会清理同战役旧快照，只保留最新一份。
 
 ## 2. 运行态范围（默认）
 
@@ -62,18 +63,24 @@ python saves/save_manager.py list
 # 列出指定战役快照
 python saves/save_manager.py list -c zhaoyutong
 
-# 恢复指定战役最新快照
+# 恢复指定战役最新快照（默认剪切读档）
 python saves/save_manager.py restore -c zhaoyutong
 
 # 恢复指定快照
 python saves/save_manager.py restore -c zhaoyutong --snapshot 20260227_160000
+
+# 如需复制读档（保留归档副本），显式加参数
+python saves/save_manager.py restore -c zhaoyutong --copy-from-archive
 
 # 只预览，不实际写入
 python saves/save_manager.py archive -c zhaoyutong --dry-run
 python saves/save_manager.py restore -c zhaoyutong --dry-run
 ```
 
-## 5. 冲突处理
+## 5. 读档模式与冲突处理
+
+- `restore` 默认是**剪切读档**：文件从归档移动回运行目录，读档后该快照会被消费（不再保留）。
+- 若你确实需要保留归档副本，使用 `--copy-from-archive`。
 
 - `restore` 默认不覆盖已有文件。
 - 若恢复时提示冲突，建议先封存当前局，再执行恢复。
