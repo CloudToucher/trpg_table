@@ -4,7 +4,7 @@ TRPG standard archive manager.
 
 Usage examples:
   python saves/save_manager.py status
-  python saves/save_manager.py archive -c zhaoyutong --note "Day1 tunnel checkpoint"
+  python saves/save_manager.py archive -c zhaoyutong --main-roles "赵雨桐+林立" --ai-blip "隧道潜行" --note "Day1 tunnel checkpoint"
   python saves/save_manager.py list
   python saves/save_manager.py restore -c zhaoyutong --snapshot 20260227_160000
 """
@@ -23,6 +23,9 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
 SCHEMA_VERSION = 1
+DEFAULT_ROLE_LIMIT = 3
+DEAD_SUFFIX = "_已死亡"
+EXCLUDED_ROLE_PREFIXES = ("示例角色",)
 
 RUNTIME_SCOPES: Sequence[Tuple[str, str]] = (
     ("characters", "characters/active/*.md"),
@@ -84,6 +87,77 @@ def normalize_snapshot_id(value: Optional[str]) -> str:
     if not text:
         raise ValueError("snapshot id is empty after normalization")
     return text
+
+
+def normalize_ai_blip(value: str) -> str:
+    text = re.sub(r"\s+", " ", (value or "").strip())
+    return text[:20]
+
+
+def normalize_filename_piece(value: str, fallback: str) -> str:
+    text = INVALID_WIN_CHARS.sub("", (value or "").strip())
+    text = re.sub(r"\s+", "_", text)
+    text = re.sub(r"[^\w\u4e00-\u9fff+\-]+", "_", text)
+    text = re.sub(r"_+", "_", text).strip("._")
+    if not text:
+        return fallback
+    return text[:32]
+
+
+def parse_roles_input(value: str) -> List[str]:
+    parts = re.split(r"[+,，、/;；\s]+", value.strip())
+    result: List[str] = []
+    for part in parts:
+        name = part.strip()
+        if not name or name in result:
+            continue
+        result.append(name)
+    return result
+
+
+def canonical_character_name(stem: str) -> str:
+    name = stem.strip()
+    if name.endswith(DEAD_SUFFIX):
+        name = name[: -len(DEAD_SUFFIX)].strip()
+    return name or stem.strip()
+
+
+def detect_main_roles(root: Path, limit: int = DEFAULT_ROLE_LIMIT) -> List[str]:
+    active_dir = root / "characters" / "active"
+    if not active_dir.exists():
+        return []
+    files = [p for p in active_dir.glob("*.md") if p.is_file()]
+    files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    names: List[str] = []
+    for path in files:
+        if path.stem.endswith(DEAD_SUFFIX):
+            continue
+        if any(path.stem.startswith(prefix) for prefix in EXCLUDED_ROLE_PREFIXES):
+            continue
+        name = canonical_character_name(path.stem)
+        if not name or name in names:
+            continue
+        names.append(name)
+        if len(names) >= limit:
+            break
+    return names
+
+
+def resolve_main_roles(root: Path, explicit_roles: str, limit: int = DEFAULT_ROLE_LIMIT) -> List[str]:
+    if explicit_roles.strip():
+        roles = parse_roles_input(explicit_roles)
+        if roles:
+            return roles[:limit]
+    return detect_main_roles(root, limit=limit)
+
+
+def build_save_filename_hint(snapshot_id: str, main_roles: Sequence[str], ai_blip: str) -> str:
+    roles_label = "+".join(main_roles) if main_roles else "队伍"
+    role_part = normalize_filename_piece(roles_label, "队伍")
+    if ai_blip:
+        blip_part = normalize_filename_piece(ai_blip, "摘要")
+        return f"save_{snapshot_id}_{role_part}_{blip_part}.md"
+    return f"save_{snapshot_id}_{role_part}.md"
 
 
 def human_size(size: int) -> str:
@@ -196,6 +270,9 @@ def build_summary_markdown(manifest: Dict) -> str:
         f"- 快照ID：`{manifest['snapshot_id']}`",
         f"- 创建时间：`{manifest['created_at']}`",
         f"- 封存模式：`{manifest['archive_mode']}`",
+        f"- 主角色串：`{manifest.get('main_roles_label') or '队伍'}`",
+        f"- AI超简评：`{manifest.get('ai_blip') or '(无)'}`",
+        f"- 推荐存档名：`{manifest.get('save_filename_hint') or '(未生成)'}`",
         f"- 文件总数：`{manifest['counts']['files']}`",
         f"- 总大小：`{manifest['counts']['bytes_human']}`",
         "",
@@ -329,11 +406,17 @@ def cmd_archive(args: argparse.Namespace) -> int:
     root = project_root()
     campaign_id = normalize_campaign_id(args.campaign)
     snapshot_id = normalize_snapshot_id(args.snapshot)
+    role_limit = max(1, int(args.role_limit))
 
     files = collect_scope_files(root, extra_globs=args.extra)
     if not files:
         print("没有可封存的运行态文件，终止。")
         return 1
+
+    main_roles = resolve_main_roles(root, args.main_roles, limit=role_limit)
+    main_roles_label = "+".join(main_roles) if main_roles else "队伍"
+    ai_blip = normalize_ai_blip(args.ai_blip)
+    save_filename_hint = build_save_filename_hint(snapshot_id, main_roles, ai_blip)
 
     snapshot_dir = archives_root(root) / campaign_id / snapshot_id
     data_dir = snapshot_dir / "data"
@@ -352,6 +435,10 @@ def cmd_archive(args: argparse.Namespace) -> int:
     print(f"campaign: {campaign_id}")
     print(f"snapshot: {snapshot_id}")
     print(f"mode: {args.mode}")
+    print(f"main_roles: {main_roles_label}")
+    if ai_blip:
+        print(f"ai_blip: {ai_blip}")
+    print(f"save_filename_hint: {save_filename_hint}")
     print(f"files: {len(files)} ({human_size(total_size)})")
     if args.note:
         print(f"note: {args.note}")
@@ -387,6 +474,10 @@ def cmd_archive(args: argparse.Namespace) -> int:
         "snapshot_id": snapshot_id,
         "created_at": created_at,
         "archive_mode": args.mode,
+        "main_roles": list(main_roles),
+        "main_roles_label": main_roles_label,
+        "ai_blip": ai_blip,
+        "save_filename_hint": save_filename_hint,
         "note": args.note or "",
         "source_root": str(root),
         "scope_counts": runtime_scope_summary(files),
@@ -412,6 +503,9 @@ def cmd_archive(args: argparse.Namespace) -> int:
             "snapshot_id": snapshot_id,
             "created_at": created_at,
             "archive_mode": args.mode,
+            "main_roles_label": main_roles_label,
+            "ai_blip": ai_blip,
+            "save_filename_hint": save_filename_hint,
             "file_count": manifest["counts"]["files"],
             "total_bytes": manifest["counts"]["bytes"],
             "note": args.note or "",
@@ -440,9 +534,12 @@ def cmd_list(args: argparse.Namespace) -> int:
         count = manifest.get("counts", {}).get("files", 0)
         size = manifest.get("counts", {}).get("bytes", 0)
         note = manifest.get("note") or "-"
+        roles = manifest.get("main_roles_label") or "队伍"
+        blip = manifest.get("ai_blip") or "-"
         print(
             f"- {manifest.get('campaign_id')}/{manifest.get('snapshot_id')} "
-            f"| {manifest.get('created_at')} | files={count} | size={human_size(int(size))} | note={note}"
+            f"| {manifest.get('created_at')} | roles={roles} | blip={blip} "
+            f"| files={count} | size={human_size(int(size))} | note={note}"
         )
     return 0
 
@@ -558,6 +655,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_archive = sub.add_parser("archive", help="封存当前运行态文件")
     p_archive.add_argument("-c", "--campaign", required=True, help="战役ID（例如 zhaoyutong）")
     p_archive.add_argument("--snapshot", help="自定义快照ID，默认 YYYYMMDD_HHMMSS")
+    p_archive.add_argument(
+        "--main-roles",
+        default="",
+        help="主角色名，使用 + 或逗号分隔；留空则自动从 characters/active 推断",
+    )
+    p_archive.add_argument(
+        "--role-limit",
+        type=int,
+        default=DEFAULT_ROLE_LIMIT,
+        help=f"自动推断主角色时最多取前N个（默认 {DEFAULT_ROLE_LIMIT}）",
+    )
+    p_archive.add_argument(
+        "--ai-blip",
+        default="",
+        help="AI超简评（建议<=20字），会写入manifest并用于推荐存档名",
+    )
     p_archive.add_argument(
         "--mode",
         choices=["move", "copy"],

@@ -7,6 +7,7 @@
 - 封存当前局：把角色、日志、会话存档迁移到归档目录，避免影响新开局。
 - 标准化交接：每次封存都生成 `manifest.json` + `summary.md`，可追溯、可审计。
 - 可恢复：按 `campaign_id/snapshot_id` 将文件放回原路径。
+- 存档命名统一：`save_时间戳_主角色串_AI超简评.md`（便于多人局检索）。
 
 ## 2. 运行态范围（默认）
 
@@ -46,7 +47,7 @@ python saves/save_manager.py status
 python saves/save_manager.py status --verbose
 
 # 迁移封存当前局（推荐，封存后可直接开新局）
-python saves/save_manager.py archive -c zhaoyutong --note "Day1 check point"
+python saves/save_manager.py archive -c zhaoyutong --main-roles "赵雨桐+林立" --ai-blip "隧道推进" --note "Day1 check point"
 
 # 仅复制，不清空当前运行目录
 python saves/save_manager.py archive -c zhaoyutong --mode copy
@@ -77,12 +78,17 @@ python saves/save_manager.py restore -c zhaoyutong --dry-run
 ## 6. AI DM 执行职责（建议流程）
 
 1. 会话结束或玩家说“封存当前局”时：
-   `python saves/save_manager.py archive -c <campaign_id> --note "<摘要>"`
+   `python saves/save_manager.py archive -c <campaign_id> --main-roles "<主角色串>" --ai-blip "<AI超简评>" --note "<摘要>"`
 2. 玩家说“开始新游戏”前：
    `python saves/save_manager.py status`，确认 `new_game_ready: yes`。
 3. 玩家说“继续某战役”时：
    `python saves/save_manager.py restore -c <campaign_id> [--snapshot <id>]`
 4. 恢复后读取该战役的最新角色卡/日志/存档，继续主持。
+
+补充：
+- `--main-roles`：主角色拼接（支持 `+` 或逗号分隔）。
+- `--ai-blip`：AI超简评（建议20字以内）。
+- 不传 `--main-roles` 时，工具会自动从 `characters/active/` 推断主角色（默认排除“示例角色*”和“*_已死亡”）并生成推荐存档文件名提示。
 
 ## 7. 可选：扩展封存范围
 

@@ -23,6 +23,9 @@
 【第四步：了解情境检查清单】
 读取 dm_guide/情境检查清单.md —— 这是按操作场景分类的补充提醒列表（战斗进入、战斗每轮、探索搜索、NPC交互、休息、场景切换、存档、会话开始），在工作表第7步验收时参考。
 
+【第五步：加载多人原始输入协议】
+读取 dm_guide/原始输入协议_多人多角色.md —— 当玩家一次性提交多个角色对白/行动时，先整体理解再统一裁决；你有最终解释权和顺序裁决权。
+
 【运行规范】
 - 每次收到玩家消息 → 执行"DM每轮工作表"第1步到第7步
 - 第7步验收清单全部通过后才发出回复
@@ -30,9 +33,10 @@
 - 实时更新角色卡（characters/active/）
 - 实时写入四种日志（logs/session/, logs/combat/, logs/exploration/, logs/system/）
 - 存档时必须填写"活跃状态提醒"区域（持续效果、饥饿口渴计时、区域特殊规则）
+- 收到多人批量输入时，按"原始输入协议"先整体解析，再统一裁决并明确说明无效/顺延条目
 
 然后根据玩家的需求：
-- 如果玩家说"开始新游戏"，读取 characters/templates/角色生成指南.md，引导玩家创建角色
+- 如果玩家说"开始新游戏"，读取 characters/templates/角色生成指南.md，引导玩家创建1-N名角色（可多人分别控制）
 - 如果玩家说"继续游戏"：
   - 玩家给出战役ID：先执行 `python saves/save_manager.py restore -c [campaign_id] [--snapshot 快照ID]`
   - 玩家未给出战役ID：先执行 `python saves/save_manager.py list`；若只有1个战役则自动恢复，若有多个先询问玩家
@@ -52,6 +56,7 @@
 2. dm_guide/DM每轮工作表.md（核心！每次收到玩家消息后按第1-7步执行）
 3. dm_guide/AI_DM指南.md（你的身份、原则和氛围技巧）
 4. dm_guide/情境检查清单.md（补充提醒，按需查对应段落）
+5. dm_guide/原始输入协议_多人多角色.md（多人批量输入时的裁决口径）
 玩家要求继续旧局时，先执行：
 - 已知战役ID：`python saves/save_manager.py restore -c [campaign_id] [--snapshot 快照ID]`
 - 未知战役ID：`python saves/save_manager.py list`，按列表确认后再 restore
