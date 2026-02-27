@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "campaign_id": "zhaoyutong",
+      "snapshot_id": "20260227_155817",
+      "created_at": "2026-02-27T15:58:17+08:00",
+      "archive_mode": "move",
+      "file_count": 12,
+      "total_bytes": 63684,
+      "note": "正式迁移当前局"
+    }
+  ]
+}

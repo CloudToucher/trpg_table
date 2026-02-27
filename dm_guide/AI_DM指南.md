@@ -52,7 +52,10 @@
 
 1. 读取存档文件 (saves/)
    → 如果是新游戏，读取角色卡和序章场景
-   → 如果是继续游戏，读取最新存档
+   → 如果是继续游戏，先执行标准恢复：
+     - 玩家已给出战役ID：`python saves/save_manager.py restore -c [campaign_id] [--snapshot 快照ID]`
+     - 玩家未给出战役ID：先执行 `python saves/save_manager.py list`，若仅有1个战役则自动恢复；若有多个战役则先让玩家确认
+   → 然后读取恢复后的最新存档
    → 【重要】检查存档中的"活跃状态提醒"区域，恢复所有计时和效果
 
 2. 读取 dm_guide/情境检查清单.md 的"I.会话开始清单"段落
@@ -109,6 +112,8 @@
 1. 保存存档
    - 创建存档文件 (saves/save_YYYYMMDD_HHMMSS.md)
    - 记录完整角色状态、位置、进度
+   - 运行标准封存工具（推荐）：
+     `python saves/save_manager.py archive -c [campaign_id] --note "[会话摘要]"`
 
 2. 完成日志
    - 完成会话日志的本次摘要
@@ -177,6 +182,7 @@
 | 任何检定/变化 | 系统日志 | 追加一行记录 |
 | 任务进度变化 | 主线进度 | 更新勾选 |
 | 会话结束 | 存档 | 创建新存档 |
+| 会话结束 | 封存工具 | `save_manager archive` 迁移封存运行态 |
 
 ### 文件更新频率
 

@@ -82,7 +82,7 @@ AI 实时读写本地文件：
 │    └──────────────────────────────────────────┘           │
 │                                                          │
 │ 5. 存档：你说"存档"或会话结束时 AI 自动保存               │
-│ 6. 下次继续：你说"继续游戏"，AI 读取存档恢复               │
+│ 6. 下次继续：你说"继续游戏"，AI 先 restore 再读存档恢复     │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -138,7 +138,7 @@ HP: 40/40 | SP: 24/24 | EP: 32/32
 
 - 一个能读写本地文件的 AI 工具（Cursor / Codex / 其他支持文件操作的 AI）
 - 本项目文件夹放在 AI 可以访问的路径下
-- Python 3（用于运行骰池生成工具）
+- Python 3（用于运行骰池生成工具和存档管理工具）
 
 ### 第一步：生成骰池
 
@@ -167,7 +167,27 @@ python tools/dice_pool.py -o
 
 对 AI 说 **"开始新游戏"**，AI 会引导你创建角色。
 
-或者说 **"继续游戏"** 来读取上次的存档。
+或者说 **"继续游戏"**，由 AI 先执行 `save_manager restore` 后再读取上次存档。
+
+### 标准化封存与读档（推荐）
+
+为了不让旧局数据干扰新局，推荐在每次会话结束后使用标准工具封存运行态文件：
+
+```bash
+# 查看当前是否还有运行态文件（角色/日志/存档）
+python saves/save_manager.py status
+
+# 迁移封存当前局（默认 move：会把运行态文件移出）
+python saves/save_manager.py archive -c zhaoyutong --note "Day1 文化路站"
+
+# 列出所有封存快照
+python saves/save_manager.py list
+
+# 恢复某个战役的最新快照
+python saves/save_manager.py restore -c zhaoyutong
+```
+
+完整流程见 `saves/SAVE_MANAGER.md`。
 
 ---
 
@@ -298,7 +318,10 @@ trpg_table/
 │   └── 日志系统说明.md
 │
 ├── saves/                          ← 存档（含活跃状态提醒）
-│   └── save_initial_template.md    ← 存档格式模板
+│   ├── save_manager.py             ← 标准化封存/恢复工具
+│   ├── SAVE_MANAGER.md             ← 封存/读档操作手册
+│   ├── save_initial_template.md    ← 存档格式模板
+│   └── archives/                   ← 封存后的战役快照（自动生成）
 │
 └── tools/                          ← 游戏工具
     ├── dice_pool.py                ← 骰池生成器（python tools/dice_pool.py -o）
