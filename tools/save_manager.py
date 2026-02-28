@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """
-TRPG standard archive manager.
+TRPG 存档管理器（剪切式）。
 
-Usage examples:
-  python saves/save_manager.py status
-  python saves/save_manager.py archive -c zhaoyutong --main-roles "赵雨桐+林立" --ai-blip "隧道潜行" --note "Day1 tunnel checkpoint"
-  python saves/save_manager.py list
-  python saves/save_manager.py restore -c zhaoyutong --snapshot 20260227_160000
+存档 = 把运行态文件剪切到归档目录；读档 = 把归档文件剪切回运行态。
+不做备份、不做快照、不保留副本。
+
+Usage:
+  python tools/save_manager.py status
+  python tools/save_manager.py archive -c zhaoyutong --main-roles "赵雨桐+林立" --ai-blip "隧道潜行" --note "Day1 tunnel checkpoint"
+  python tools/save_manager.py list
+  python tools/save_manager.py restore -c zhaoyutong --id 20260227_160000
 """
 
 from __future__ import annotations
@@ -265,13 +268,12 @@ def build_file_record(path: Path, relative: str, scope: str) -> Dict:
 
 def build_summary_markdown(manifest: Dict) -> str:
     lines: List[str] = [
-        f"# 存档封存快照 `{manifest['snapshot_id']}`",
+        f"# 存档 `{manifest['snapshot_id']}`",
         "",
         "## 元数据",
         f"- 战役ID：`{manifest['campaign_id']}`",
-        f"- 快照ID：`{manifest['snapshot_id']}`",
+        f"- 存档ID：`{manifest['snapshot_id']}`",
         f"- 创建时间：`{manifest['created_at']}`",
-        f"- 封存模式：`{manifest['archive_mode']}`",
         f"- 主角色串：`{manifest.get('main_roles_label') or '队伍'}`",
         f"- AI超简评：`{manifest.get('ai_blip') or '(无)'}`",
         f"- 推荐存档名：`{manifest.get('save_filename_hint') or '(未生成)'}`",
@@ -445,7 +447,7 @@ def cmd_archive(args: argparse.Namespace) -> int:
 
     files = collect_scope_files(root, extra_globs=args.extra)
     if not files:
-        print("没有可封存的运行态文件，终止。")
+        print("没有可存档的运行态文件，终止。")
         return 1
 
     purged_old = purge_campaign_archives(root, campaign_id, dry_run=args.dry_run)
@@ -461,7 +463,7 @@ def cmd_archive(args: argparse.Namespace) -> int:
     summary_file = snapshot_dir / "summary.md"
 
     if snapshot_dir.exists():
-        print(f"目标快照已存在：{snapshot_dir}")
+        print(f"目标存档已存在：{snapshot_dir}")
         return 1
 
     total_size = sum(item.path.stat().st_size for item in files)
@@ -470,11 +472,11 @@ def cmd_archive(args: argparse.Namespace) -> int:
     else:
         print("== Archive ==")
     print(f"campaign: {campaign_id}")
-    print(f"snapshot: {snapshot_id}")
-    print(f"mode: {args.mode}")
+    print(f"save_id: {snapshot_id}")
+    print("mode: move (剪切)")
     print("history_mode: single-slot")
     if purged_old:
-        print(f"purged_old_snapshots: {purged_old}")
+        print(f"purged_old: {purged_old}")
     print(f"main_roles: {main_roles_label}")
     if ai_blip:
         print(f"ai_blip: {ai_blip}")
@@ -499,11 +501,8 @@ def cmd_archive(args: argparse.Namespace) -> int:
             continue
 
         destination.parent.mkdir(parents=True, exist_ok=True)
-        if args.mode == "move":
-            shutil.move(str(source), str(destination))
-            moved_count += 1
-        else:
-            shutil.copy2(str(source), str(destination))
+        shutil.move(str(source), str(destination))
+        moved_count += 1
         records.append(build_file_record(destination, relative_path, item.scope))
 
     created_at = now_iso()
@@ -513,7 +512,7 @@ def cmd_archive(args: argparse.Namespace) -> int:
         "campaign_id": campaign_id,
         "snapshot_id": snapshot_id,
         "created_at": created_at,
-        "archive_mode": args.mode,
+        "archive_mode": "move",
         "main_roles": list(main_roles),
         "main_roles_label": main_roles_label,
         "ai_blip": ai_blip,
@@ -542,7 +541,7 @@ def cmd_archive(args: argparse.Namespace) -> int:
             "campaign_id": campaign_id,
             "snapshot_id": snapshot_id,
             "created_at": created_at,
-            "archive_mode": args.mode,
+            "archive_mode": "move",
             "main_roles_label": main_roles_label,
             "ai_blip": ai_blip,
             "save_filename_hint": save_filename_hint,
@@ -554,8 +553,7 @@ def cmd_archive(args: argparse.Namespace) -> int:
 
     print(f"archived: {manifest['counts']['files']} files")
     print(f"archive_path: {snapshot_dir}")
-    if args.mode == "move":
-        print(f"migrated_out_of_runtime: {moved_count}")
+    print(f"moved_out_of_runtime: {moved_count}")
     print("written: manifest.json, summary.md")
     return 0
 
@@ -566,10 +564,10 @@ def cmd_list(args: argparse.Namespace) -> int:
     manifests = list_manifests(root, campaign=campaign)
 
     if not manifests:
-        print("没有已封存快照。")
+        print("没有已有存档。")
         return 0
 
-    print("== Archive Snapshots ==")
+    print("== Saved Archives ==")
     for _, manifest in manifests:
         count = manifest.get("counts", {}).get("files", 0)
         size = manifest.get("counts", {}).get("bytes", 0)
@@ -594,11 +592,11 @@ def cmd_restore(args: argparse.Namespace) -> int:
     snapshot_dir = manifest_path.parent
     data_dir = snapshot_dir / "data"
     if not data_dir.exists():
-        raise RuntimeError(f"archive data directory not found: {data_dir}")
+        raise RuntimeError(f"存档数据目录不存在: {data_dir}")
 
     records: List[Dict] = list(manifest.get("files", []))
     if not records:
-        print("目标快照文件为空，无需恢复。")
+        print("目标存档为空，无需恢复。")
         return 0
 
     collisions: List[str] = []
@@ -618,7 +616,7 @@ def cmd_restore(args: argparse.Namespace) -> int:
             collisions.append(relative)
 
     if missing_sources:
-        print("恢复失败：快照内缺少以下文件：")
+        print("读档失败：存档内缺少以下文件：")
         for item in missing_sources[:20]:
             print(f"  - {item}")
         if len(missing_sources) > 20:
@@ -626,28 +624,21 @@ def cmd_restore(args: argparse.Namespace) -> int:
         return 1
 
     if collisions and not args.force:
-        print("恢复终止：目标路径已有文件。")
-        print("请先封存当前局，或改用 --force 覆盖。冲突文件：")
+        print("读档终止：目标路径已有文件（运行态中已有角色/日志）。")
+        print("请先存档当前局，或改用 --force 覆盖。冲突文件：")
         for item in collisions[:20]:
             print(f"  - {item}")
         if len(collisions) > 20:
             print(f"  ... and {len(collisions) - 20} more")
         return 1
 
-    move_from_archive = True
-    if args.copy_from_archive:
-        move_from_archive = False
-    if getattr(args, "move_from_archive", False):
-        move_from_archive = True
-
-    mode = "move" if move_from_archive else "copy"
     if args.dry_run:
         print("== Restore Dry Run ==")
     else:
         print("== Restore ==")
     print(f"campaign: {manifest.get('campaign_id')}")
-    print(f"snapshot: {manifest.get('snapshot_id')}")
-    print(f"mode: {mode}")
+    print(f"save_id: {manifest.get('snapshot_id')}")
+    print("mode: move (剪切读档)")
     print(f"files: {len(restore_plan)}")
     if collisions:
         print(f"overwrites: {len(collisions)} (via --force)")
@@ -660,10 +651,7 @@ def cmd_restore(args: argparse.Namespace) -> int:
         if args.force and target.exists():
             remove_existing_path(target)
 
-        if move_from_archive:
-            shutil.move(str(source), str(target))
-        else:
-            shutil.copy2(str(source), str(target))
+        shutil.move(str(source), str(target))
 
         if not args.skip_hash_check:
             expected_hash = str(record.get("sha256", "")).strip()
@@ -677,28 +665,25 @@ def cmd_restore(args: argparse.Namespace) -> int:
         print("dry-run complete, no files changed.")
         return 0
 
-    if move_from_archive:
-        snapshot_id_effective = str(manifest.get("snapshot_id", "")).strip()
-        campaign_id_effective = str(manifest.get("campaign_id", "")).strip()
-        # move模式下快照被消费，避免同一份数据在归档和运行态双份存在
-        if snapshot_dir.exists():
-            shutil.rmtree(snapshot_dir)
-        if campaign_id_effective and snapshot_id_effective:
-            remove_archive_index_entry(root, campaign_id_effective, snapshot_id_effective)
-        campaign_dir = archives_root(root) / campaign_id
-        if campaign_dir.exists() and not any(campaign_dir.iterdir()):
-            campaign_dir.rmdir()
+    snapshot_id_effective = str(manifest.get("snapshot_id", "")).strip()
+    campaign_id_effective = str(manifest.get("campaign_id", "")).strip()
+    if snapshot_dir.exists():
+        shutil.rmtree(snapshot_dir)
+    if campaign_id_effective and snapshot_id_effective:
+        remove_archive_index_entry(root, campaign_id_effective, snapshot_id_effective)
+    campaign_dir = archives_root(root) / campaign_id
+    if campaign_dir.exists() and not any(campaign_dir.iterdir()):
+        campaign_dir.rmdir()
 
     print(f"restored: {restored} files")
     print(f"from: {snapshot_dir}")
-    if move_from_archive:
-        print("archive_snapshot_consumed: yes")
+    print("archive_consumed: yes")
     return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="TRPG 存档标准管理器：封存当前局并可按快照恢复。"
+        description="TRPG 存档管理器（剪切式）：存档 = 剪切到归档；读档 = 剪切回运行态。"
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -712,9 +697,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_status.add_argument("--verbose", action="store_true", help="显示文件清单")
     p_status.set_defaults(func=cmd_status)
 
-    p_archive = sub.add_parser("archive", help="封存当前运行态文件")
+    p_archive = sub.add_parser("archive", help="存档：把运行态文件剪切到归档目录")
     p_archive.add_argument("-c", "--campaign", required=True, help="战役ID（例如 zhaoyutong）")
-    p_archive.add_argument("--snapshot", help="自定义快照ID，默认 YYYYMMDD_HHMMSS")
+    p_archive.add_argument("--snapshot", help="自定义存档ID，默认 YYYYMMDD_HHMMSS")
     p_archive.add_argument(
         "--main-roles",
         default="",
@@ -729,45 +714,29 @@ def build_parser() -> argparse.ArgumentParser:
     p_archive.add_argument(
         "--ai-blip",
         default="",
-        help="AI超简评（建议<=20字），会写入manifest并用于推荐存档名",
+        help="AI超简评（建议<=20字），写入 manifest 并用于推荐存档名",
     )
-    p_archive.add_argument(
-        "--mode",
-        choices=["move", "copy"],
-        default="move",
-        help="move=迁移并清空当前局，copy=仅复制",
-    )
-    p_archive.add_argument("--note", default="", help="封存备注")
+    p_archive.add_argument("--note", default="", help="存档备注")
     p_archive.add_argument(
         "--extra",
         action="append",
         default=[],
-        help="额外纳入封存的 glob 路径（相对项目根）",
+        help="额外纳入存档的 glob 路径（相对项目根）",
     )
     p_archive.add_argument("--dry-run", action="store_true", help="仅预览，不写入")
     p_archive.set_defaults(func=cmd_archive)
 
-    p_list = sub.add_parser("list", help="列出封存快照")
+    p_list = sub.add_parser("list", help="列出已有存档")
     p_list.add_argument("-c", "--campaign", help="仅显示指定战役ID")
     p_list.set_defaults(func=cmd_list)
 
-    p_restore = sub.add_parser("restore", help="从快照恢复到运行目录")
+    p_restore = sub.add_parser("restore", help="读档：把归档文件剪切回运行目录")
     p_restore.add_argument("-c", "--campaign", required=True, help="战役ID")
     p_restore.add_argument(
         "--snapshot",
-        help="快照ID；留空则恢复该战役最新快照",
+        help="存档ID；留空则恢复该战役最新存档",
     )
     p_restore.add_argument("--force", action="store_true", help="覆盖目标已有文件")
-    p_restore.add_argument(
-        "--copy-from-archive",
-        action="store_true",
-        help="复制读档（默认是剪切读档）",
-    )
-    p_restore.add_argument(
-        "--move-from-archive",
-        action="store_true",
-        help=argparse.SUPPRESS,
-    )
     p_restore.add_argument(
         "--skip-hash-check",
         action="store_true",

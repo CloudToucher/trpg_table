@@ -34,17 +34,20 @@
 - 实时写入四种日志（logs/session/, logs/combat/, logs/exploration/, logs/system/）
 - 存档时必须填写"活跃状态提醒"区域（持续效果、饥饿口渴计时、区域特殊规则）
 - 收到多人批量输入时，按"原始输入协议"先整体解析，再统一裁决并明确说明无效/顺延条目
-- 存档/读档语义固定：
-  - `archive` 默认剪切封存（move），且同战役仅保留最新一份快照（单槽位）
-  - `restore` 默认剪切读档（move），读档后会消费该快照
-  - 只有玩家明确要求保留副本时，才使用 `restore --copy-from-archive`
+- 存档/读档是剪切操作：
+  - `archive`：剪切运行态文件到归档目录，同战役只保留最新一份（单槽位）
+  - `restore`：剪切归档文件回运行态目录，读档后归档被消费
 
-然后根据玩家的需求：
-- 如果玩家说"开始新游戏"，读取 characters/templates/角色生成指南.md，引导玩家创建1-N名角色（可多人分别控制）
-- 如果玩家说"继续游戏"：
-  - 玩家给出战役ID：先执行 `python saves/save_manager.py restore -c [campaign_id] [--snapshot 快照ID]`
-  - 玩家未给出战役ID：先执行 `python saves/save_manager.py list`；若只有1个战役则自动恢复，若有多个先询问玩家
-  - 再读取 saves/ 目录下的最新存档，恢复游戏状态
+【会话开始时——必须在响应玩家之前检查】
+收到玩家第一条消息后，先读取 `characters/active/` 目录，检查是否有角色卡（排除"示例角色*"）：
+
+- 有角色卡（有运行态）：
+  · 玩家说"继续游戏" → 直接继续，不执行任何存档/读档命令
+  · 玩家说"读取其它存档" → 先 archive 当前局 → 确认角色已清空 → 再 restore 目标存档
+  · 玩家说"开始新游戏" → 先 archive 当前局 → 确认角色已清空 → 再引导角色创建
+- 无角色卡（无运行态）：
+  · 玩家说"继续游戏" → 执行 restore 从归档恢复
+  · 玩家说"开始新游戏" → 读取 characters/templates/角色生成指南.md，引导创建角色
 
 请以中文运行游戏，保持沉浸感的叙事风格。现在，等待玩家的指令。
 ```
@@ -61,10 +64,10 @@
 3. dm_guide/AI_DM指南.md（你的身份、原则和氛围技巧）
 4. dm_guide/情境检查清单.md（补充提醒，按需查对应段落）
 5. dm_guide/原始输入协议_多人多角色.md（多人批量输入时的裁决口径）
-玩家要求继续旧局时，先执行：
-- 已知战役ID：`python saves/save_manager.py restore -c [campaign_id] [--snapshot 快照ID]`
-- 未知战役ID：`python saves/save_manager.py list`，按列表确认后再 restore
-默认是剪切读档；只有玩家明确要求保留副本时，才加 `--copy-from-archive`。
+收到玩家第一条消息后，先读取 characters/active/ 检查是否有角色卡（排除"示例角色*"）：
+- 有角色卡 → 直接继续，不需要任何存档/读档命令
+- 无角色卡 → 需要 restore 从归档恢复，或引导创建新角色
+- 要切换存档 → 必须先 archive 当前局，确认角色已清空后再 restore 目标存档
 准备好后等待玩家指令。
 ```
 
@@ -77,5 +80,5 @@
 - 如果AI无法一次读取所有文件，可以分步引导它读取
 - 游戏过程中如果AI"忘记"规则，提醒它重新阅读 `rules/00_规则速查索引.md`
 - 如果AI在特定场景遗漏规则（如战斗中忘了感染检定），提醒它查阅 `dm_guide/情境检查清单.md` 的对应段落
-- 若 `python` 命令不可用，先执行 `where python`，改用可用解释器的绝对路径运行 `save_manager.py`
+- 若 `python` 命令不可用，先执行 `where python`，改用可用解释器的绝对路径运行 `tools/save_manager.py`
 - 速查索引（63行）设计为足够精简，AI应能在整个会话中保持记忆

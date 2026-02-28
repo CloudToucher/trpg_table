@@ -138,7 +138,7 @@ HP: 40/40 | SP: 24/24 | EP: 32/32
 
 - 一个能读写本地文件的 AI 工具（Cursor / Codex / 其他支持文件操作的 AI）
 - 本项目文件夹放在 AI 可以访问的路径下
-- Python 3（用于运行骰池生成工具和存档管理工具）
+- Python 3（用于运行 `tools/` 下的骰池生成器和存档管理器）
 
 ### 第一步：生成骰池
 
@@ -167,27 +167,27 @@ python tools/dice_pool.py -o
 
 对 AI 说 **"开始新游戏"**，AI 会引导你创建角色。
 
-或者说 **"继续游戏"**，由 AI 先执行 `save_manager restore` 后再读取上次存档。
+或者说 **"继续游戏"**：如果 `characters/active/` 有角色，直接继续；否则 AI 会执行读档。
 
-### 标准化封存与读档（推荐）
+### 存档与读档
 
-为了不让旧局数据干扰新局，推荐在每次会话结束后使用标准工具封存运行态文件：
+存档是**剪切**操作——存档时运行态文件被移到归档目录，读档时再移回来。数据始终只在一个地方，不做备份和快照。
 
 ```bash
-# 查看当前是否还有运行态文件（角色/日志/存档）
-python saves/save_manager.py status
+# 查看当前运行态文件
+python tools/save_manager.py status
 
-# 迁移封存当前局（默认 move：会把运行态文件移出）
-python saves/save_manager.py archive -c zhaoyutong --main-roles "赵雨桐+林立" --ai-blip "隧道推进" --note "Day1 文化路站"
+# 存档（剪切当前局到归档目录）
+python tools/save_manager.py archive -c zhaoyutong --main-roles "赵雨桐+林立" --ai-blip "隧道推进" --note "Day1 文化路站"
 
-# 列出所有封存快照
-python saves/save_manager.py list
+# 列出所有存档
+python tools/save_manager.py list
 
-# 恢复某个战役的最新快照
-python saves/save_manager.py restore -c zhaoyutong
+# 读档（剪切归档回运行目录）
+python tools/save_manager.py restore -c zhaoyutong
 ```
 
-完整流程见 `saves/SAVE_MANAGER.md`。
+详见 `saves/SAVE_MANAGER.md`。
 
 ---
 
@@ -317,13 +317,13 @@ trpg_table/
 │   ├── system/                     ← 系统日志（所有数值变动）
 │   └── 日志系统说明.md
 │
-├── saves/                          ← 存档（含活跃状态提醒）
-│   ├── save_manager.py             ← 标准化封存/恢复工具
-│   ├── SAVE_MANAGER.md             ← 封存/读档操作手册
+├── saves/                          ← 存档（存档文件 + 归档目录）
+│   ├── SAVE_MANAGER.md             ← 存档系统说明
 │   ├── save_initial_template.md    ← 存档格式模板
-│   └── archives/                   ← 封存后的战役快照（自动生成）
+│   └── archives/                   ← 归档目录（自动生成）
 │
-└── tools/                          ← 游戏工具
+└── tools/                          ← 游戏工具（所有代码文件必须在此目录）
+    ├── save_manager.py             ← 存档管理器（剪切式存档/读档）
     ├── dice_pool.py                ← 骰池生成器（python tools/dice_pool.py -o）
     └── dice_pool.md                ← 生成的骰池文件（发给DM用）
 ```
