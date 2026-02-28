@@ -1,4 +1,17 @@
 {
   "schema_version": 1,
-  "entries": []
+  "entries": [
+    {
+      "campaign_id": "zhaoyutong",
+      "snapshot_id": "20260228_191509",
+      "created_at": "2026-02-28T19:15:09+08:00",
+      "archive_mode": "move",
+      "main_roles_label": "赵雨桐",
+      "ai_blip": "\"tunnel_linli_dead\"",
+      "save_filename_hint": "save_20260228_191509_赵雨桐_tunnel_linli_dead.md",
+      "file_count": 10,
+      "total_bytes": 57941,
+      "note": "\"Day1_tunnel_to_central_park\""
+    }
+  ]
 }

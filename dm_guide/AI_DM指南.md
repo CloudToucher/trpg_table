@@ -230,6 +230,7 @@
 | 收到行动（未执行） | `playground.md` | 追加待评审行动 |
 | 执行指令后 | `playground.md` | 更新评审状态并清理已完成项 |
 | 任务进度变化 | 主线进度 | 更新勾选 |
+| 任何投骰消耗 | `tools/dice_pool.md` | 按顺序删除已用骰子，更新剩余计数 → rules/03_骰池协议.md |
 | 会话结束 | 存档 | 创建新存档 |
 | 会话结束 | 存档工具 | `python tools/save_manager.py archive` 剪切存档 |
 
